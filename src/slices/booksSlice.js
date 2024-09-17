@@ -1,4 +1,5 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
+import { toast } from "react-toastify";
 import api from '../apiService';
 
 // Async thunk to fetch books
@@ -37,6 +38,7 @@ export const addToReadingList = createAsyncThunk(
       await api.post(`/favorites`, book);
       return book;
     } catch (error) {
+      toast(error.message);
       return rejectWithValue(error.message);
     }
   }
@@ -48,12 +50,25 @@ export const removeFromReadingList = createAsyncThunk(
   async (bookId, { rejectWithValue }) => {
     try {
       await api.delete(`/favorites/${bookId}`);
+      toast.success("The book has been removed");
       return bookId;
     } catch (error) {
+      toast(error.message);
       return rejectWithValue(error.message);
     }
   }
 );
+
+// Fetch books from API
+export const fetchFavBooks = createAsyncThunk('books/fetchFavBooks', async (_, thunkAPI) => {
+  try {
+    const response = await api.get('/favorites');
+    return response.data;
+  } catch (error) {
+    toast(error.message);
+    return thunkAPI.rejectWithValue(error.message);
+  }
+});
 
 const booksSlice = createSlice({
   name: 'books',
@@ -94,10 +109,27 @@ const booksSlice = createSlice({
       .addCase(addToReadingList.fulfilled, (state, action) => {
         state.readingList.push(action.payload);
       })
+      .addCase(fetchFavBooks.pending, (state) => {
+        state.loading = true;
+      })
+      .addCase(fetchFavBooks.fulfilled, (state, action) => {
+        state.loading = false;
+        state.books = action.payload;
+      })
+      .addCase(fetchFavBooks.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      })
+      .addCase(removeFromReadingList.pending, (state) => {
+        state.loading = true;
+      })
       .addCase(removeFromReadingList.fulfilled, (state, action) => {
-        state.readingList = state.readingList.filter(
-          (book) => book.id !== action.payload
-        );
+        state.loading = false;
+        state.books = state.books.filter((book) => book.id !== action.payload);
+      })
+      .addCase(removeFromReadingList.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
       });
   },
 });
